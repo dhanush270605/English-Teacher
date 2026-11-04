@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+*.keystore
+*.jks
+android/app/build
+android/build
+android/.gradle
+android/local.properties
+test-results
+tests/e2e/screens

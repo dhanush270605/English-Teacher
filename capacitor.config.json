@@ -1,0 +1,11 @@
+{
+  "appId": "com.dhanush.englishmastery",
+  "appName": "English Mastery",
+  "webDir": "dist",
+  "android": { "allowMixedContent": false, "captureInput": false, "webContentsDebuggingEnabled": false },
+  "server": { "androidScheme": "https" },
+  "plugins": {
+    "LocalNotifications": { "smallIcon": "ic_stat_icon", "iconColor": "#6C5CE7" },
+    "CapacitorHttp": { "enabled": false }
+  }
+}

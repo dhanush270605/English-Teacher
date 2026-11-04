@@ -1,0 +1,95 @@
+# Builds the Android APK for free on GitHub Actions (public repos: free; private repos: within the free monthly minutes).
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install, test and build web app
+        run: |
+          npm ci
+          npm test
+          npm run build
+          npx cap sync android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Prepare signing key
+        id: sign
+        env:
+          KEYSTORE_B64: ${{ secrets.EM_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.EM_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.EM_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.EM_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "EM_KEYSTORE_PASSWORD=$KS_PASS" >> "$GITHUB_ENV"
+            echo "EM_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "EM_KEY_PASSWORD=$KEY_PASS" >> "$GITHUB_ENV"
+            echo "persistent=true" >> "$GITHUB_OUTPUT"
+          else
+            # No saved key yet: create a one-off key so the APK is still installable.
+            # Add your own key as repository secrets (see INSTALL_GUIDE.md) so future updates install over this version.
+            P=$(openssl rand -hex 16)
+            keytool -genkeypair -v -keystore "$RUNNER_TEMP/release.keystore" -alias em -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$P" -keypass "$P" -dname "CN=English Mastery, O=Personal, C=IN"
+            echo "::add-mask::$P"
+            echo "EM_KEYSTORE_PASSWORD=$P" >> "$GITHUB_ENV"
+            echo "EM_KEY_ALIAS=em" >> "$GITHUB_ENV"
+            echo "EM_KEY_PASSWORD=$P" >> "$GITHUB_ENV"
+            echo "persistent=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "EM_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk ../EnglishMastery.apk
+          ls -la ../*.apk
+
+      - name: Verify APK signature
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          $BT/apksigner verify --print-certs EnglishMastery.apk
+          $BT/aapt dump badging EnglishMastery.apk | head -5
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EnglishMastery-apk
+          path: EnglishMastery.apk
+          retention-days: 30
+
+      - name: Publish download (GitHub Release)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: English Mastery v1.0.${{ github.run_number }}
+          make_latest: true
+          body: |
+            Install on Android: download **EnglishMastery.apk** below, open it, allow "Install unknown apps", Install.
+            Signing key: ${{ steps.sign.outputs.persistent == 'true' && 'permanent (updates install over the old version)' || 'temporary (uninstall the old version before installing this one)' }}
+          files: EnglishMastery.apk
