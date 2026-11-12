@@ -24,21 +24,26 @@ const deps = (p: Record<string, LLMProvider>, keys = { groq: 'k1', gemini: 'k2' 
 beforeEach(async () => { _resetRouterState(); await clearAll(); });
 
 describe('AI router', () => {
-  it('uses first provider', async () => {
+  it('uses Gemini first by default', async () => {
     const g = ok('groq'), m = ok('gemini');
     const r = await chat({ system: 's', messages: [{ role: 'user', content: 'x' }], purpose: 't' }, deps({ groq: g, gemini: m }));
-    expect(r.provider).toBe('groq');
-    expect(m.chat).not.toHaveBeenCalled();
+    expect(r.provider).toBe('gemini');
+    expect(g.chat).not.toHaveBeenCalled();
   });
   it('falls back on quota and records usage', async () => {
-    const g = fail('groq', new AIError('quota', 'q', 60000, 'groq')), m = ok('gemini');
+    const m = fail('gemini', new AIError('quota', 'q', 60000, 'gemini')), g = ok('groq');
     const r = await chat({ system: 's', messages: [{ role: 'user', content: 'x' }], purpose: 't' }, deps({ groq: g, gemini: m }));
-    expect(r.provider).toBe('gemini');
+    expect(r.provider).toBe('groq');
     const usage = await db.usage.toArray();
-    expect(usage.find((u) => u.provider === 'groq')?.errors).toBe(1);
-    // groq now cooling down: not called again
+    expect(usage.find((u) => u.provider === 'gemini')?.errors).toBe(1);
+    // gemini now cooling down: not called again
     await chat({ system: 's', messages: [{ role: 'user', content: 'x' }], purpose: 't' }, deps({ groq: g, gemini: m }));
-    expect(g.chat).toHaveBeenCalledTimes(1);
+    expect(m.chat).toHaveBeenCalledTimes(1);
+  });
+  it('search requests go to Gemini first', async () => {
+    const g = ok('groq'), m = ok('gemini');
+    const r = await chat({ system: 's', messages: [{ role: 'user', content: 'x' }], purpose: 't', search: true }, deps({ groq: g, gemini: m }));
+    expect(r.provider).toBe('gemini');
   });
   it('skips providers without keys and reports no_provider', async () => {
     await expect(chat({ system: 's', messages: [], purpose: 't' }, deps({ groq: ok('groq'), gemini: ok('gemini') }, { groq: '', gemini: '' }))).rejects.toMatchObject({ kind: 'no_provider' });

@@ -44,6 +44,12 @@ build must be installed after uninstalling the old app (export your data first: 
 
 ---
 
+## Automatic updates
+From build 3 onward the app updates itself: on every launch it checks the latest GitHub release, downloads the new
+version in the background and switches to it the next time you open the app (Profile → About & limitations shows the
+version and has **Check for updates / Restart now**). Your data is kept. Only changes to native Android parts
+(new permissions or plugins) need a new APK – the app will say so in the release notes.
+
 ## Install on the Vivo V27
 
 1. Copy the APK to the phone: USB cable (choose “File transfer”) into `Download/`, or send it to yourself on

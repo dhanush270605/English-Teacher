@@ -90,3 +90,42 @@ export function MetricsPanel({ m }: { m: SpeechMetrics }) {
     </div>
   );
 }
+
+import { diffWords } from '../engine/text';
+import { computeMetrics } from '../engine/metrics';
+import type { Transcript } from '../types';
+
+/** Shown right under the learner's own message: full corrected version with mistakes struck out. */
+export function InlineFix({ said, fix, corrections, transcript }: { said: string; fix?: { corrected: string; natural?: string }; corrections?: Correction[]; transcript?: Transcript }) {
+  const [open, setOpen] = useState(false);
+  if (!fix && !corrections?.length) return null;
+  const corrected = fix?.corrected?.trim() || '';
+  const ops = corrected ? diffWords(said, corrected) : [];
+  const changed = ops.some((o) => o.type !== 'same');
+  const m = transcript?.words?.length ? computeMetrics(transcript) : undefined;
+  return (
+    <div class="fixbox">
+      {corrected && !changed ? (
+        <div class="row small"><span class="badge good">✓ Correct</span><span class="muted">No grammar mistakes.</span></div>
+      ) : corrected ? (
+        <>
+          <div class="k">Correct version</div>
+          <div class="diff">{ops.map((o) => <span class={o.type}>{o.text} </span>)}</div>
+        </>
+      ) : null}
+      {fix?.natural && fix.natural.trim() !== corrected && (
+        <>
+          <div class="k">Say it naturally</div>
+          <div class="row" style={{ alignItems: 'flex-start' }}><span class="grow">{fix.natural}</span><button class="icon-btn" aria-label="Listen" onClick={() => speak(fix.natural!)}><Icon name="volume" size={16} /></button></div>
+        </>
+      )}
+      {m && <div class="tiny muted mt">⏱ {Math.round(m.articulationWpm || m.wpm)} words/min · {m.longPauses ?? 0} long pause{m.longPauses === 1 ? '' : 's'} · {m.fillers} filler{m.fillers === 1 ? '' : 's'}</div>}
+      {!!corrections?.length && (
+        <>
+          <button class="linkbtn" onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Why?'} ({corrections.length} mistake{corrections.length > 1 ? 's' : ''})</button>
+          {open && corrections.map((c) => <div class="tiny" style={{ marginTop: 4 }}><span class="strike">{c.original}</span> → <b>{c.corrected}</b> – {c.why}</div>)}
+        </>
+      )}
+    </div>
+  );
+}

@@ -61,7 +61,7 @@ const defaultDeps: RouterDeps = {
 export async function chat(req: ChatRequest, deps: RouterDeps = defaultDeps): Promise<ChatResult> {
   if (!deps.online()) throw new AIError('offline', 'You are offline. AI feedback needs internet; your practice is saved and can be analysed later.');
   const cfg = await deps.config();
-  const order = req.image ? (['gemini'] as ProviderId[]) : cfg.order;
+  const order = req.image ? (['gemini'] as ProviderId[]) : req.search ? (['gemini', 'groq'] as ProviderId[]) : cfg.order;
   let lastErr: AIError | undefined;
   let tried = 0;
   for (const p of order) {

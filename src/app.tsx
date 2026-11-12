@@ -22,6 +22,10 @@ import { Profile } from './screens/Profile';
 import { KeysSettings, NotificationSettings, PrivacySettings, LearningSettings, Diagnostics, About } from './screens/Settings';
 import { TimerScreen } from './screens/Timer';
 import { Onboarding } from './screens/Onboarding';
+import { Friend } from './screens/Friend';
+import { Fluency } from './screens/Fluency';
+import { applyPendingUpdate, checkForUpdate } from './services/updater';
+import { saveProfile } from './services/db';
 
 export function applyTheme(theme: string) {
   const el = document.documentElement;
@@ -35,15 +39,22 @@ export function App() {
 
   useEffect(() => {
     (async () => {
+      if (await applyPendingUpdate()) return; // WebView reloads into the new version
       const p = await getProfile();
       applyTheme(p.theme);
+      if ((p.prefsVersion || 0) < 2) {
+        // v2: show corrections under every message, teacher voice off by default, harder words
+        await saveProfile({ prefsVersion: 2, feedbackMode: 'turn', teacherVoice: false, vocabLevel: p.vocabLevel || 'B2', pauseCoach: true });
+      }
       if (!p.onboarded && !location.hash.startsWith('#/onboarding')) go('#/onboarding');
       setReady(true);
       cleanupRecordings(14).catch(() => {});
       await initNotifications((r) => go(r));
       if (p.onboarded) syncNotifications().catch(() => {});
+      setTimeout(() => checkForUpdate().catch(() => {}), 4000);
     })();
     if (isNative()) {
+      CapApp.addListener('appStateChange', ({ isActive }) => { if (isActive) checkForUpdate().catch(() => {}); });
       CapApp.addListener('backButton', ({ canGoBack }) => {
         if (location.hash === '#/home' || location.hash === '' ) CapApp.exitApp();
         else if (canGoBack) history.back(); else go('#/home');
@@ -61,6 +72,8 @@ export function App() {
     case 'onboarding': screen = <Onboarding />; nav = false; break;
     case 'teacher': screen = b ? <Conversation mode={b} key={route.query.toString()} /> : <TeacherModes />; nav = !b; break;
     case 'practice': screen = <Practice />; break;
+    case 'friend': screen = <Friend />; nav = false; break;
+    case 'fluency': screen = <Fluency />; nav = false; break;
     case 'picture': screen = <PictureChallenge category={b} />; nav = false; break;
     case 'interview': screen = <Interview />; nav = false; break;
     case 'vocab': screen = <Vocab tab={b || 'learn'} />; break;
@@ -82,7 +95,7 @@ export function App() {
     case 'timer': screen = <TimerScreen />; break;
     default: screen = <Home />;
   }
-  const tab = a === 'teacher' ? 'teacher' : ['practice', 'vocab', 'grammar', 'listening', 'pronunciation'].includes(a) ? 'practice' : ['progress', 'weekly', 'history', 'session', 'mistakes'].includes(a) ? 'progress' : ['profile', 'settings', 'notifications', 'timer'].includes(a) ? 'profile' : 'home';
+  const tab = a === 'teacher' || a === 'friend' ? 'teacher' : ['practice', 'fluency', 'vocab', 'grammar', 'listening', 'pronunciation'].includes(a) ? 'practice' : ['progress', 'weekly', 'history', 'session', 'mistakes'].includes(a) ? 'progress' : ['profile', 'settings', 'notifications', 'timer'].includes(a) ? 'profile' : 'home';
   return (
     <div class="app">
       {screen}

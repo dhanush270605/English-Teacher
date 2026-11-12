@@ -9,9 +9,10 @@ export interface ChatRequest {
   tier?: 'fast' | 'smart';
   image?: { mime: string; base64: string };
   purpose: string; // for usage monitoring
+  search?: boolean; // allow live web search (Gemini Google Search grounding / Groq compound)
 }
 
-export interface ChatResult { text: string; tokensIn: number; tokensOut: number; provider: ProviderId; model: string }
+export interface ChatResult { text: string; tokensIn: number; tokensOut: number; provider: ProviderId; model: string; sources?: { title: string; uri: string }[] }
 
 export type ProviderId = 'groq' | 'gemini';
 
@@ -35,14 +36,14 @@ export interface AIConfig {
 }
 
 export const DEFAULT_AI_CONFIG: AIConfig = {
-  order: ['groq', 'gemini'],
+  order: ['gemini', 'groq'],
   groqFast: 'openai/gpt-oss-20b',
   groqSmart: 'openai/gpt-oss-120b',
   geminiFast: 'gemini-2.5-flash-lite',
   geminiSmart: 'gemini-2.5-flash',
   whisperModel: 'whisper-large-v3-turbo',
-  dailyCap: { groq: 900, gemini: 200 },
-  rpm: { groq: 25, gemini: 8 },
+  dailyCap: { groq: 900, gemini: 400 },
+  rpm: { groq: 25, gemini: 10 },
 };
 
 export interface LLMProvider {

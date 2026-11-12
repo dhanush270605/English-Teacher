@@ -180,3 +180,31 @@ export function alignWords(reference: string[], hypothesis: string[]): { word: s
 
 export const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
 export const lin = (v: number, from: number, to: number) => clamp(((v - from) / (to - from)) * 100);
+
+export type DiffOp = { type: 'same' | 'del' | 'add'; text: string };
+
+/** Word-level diff (LCS) between what the learner said and the corrected version, for strike-through display. */
+export function diffWords(original: string, corrected: string): DiffOp[] {
+  const a = original.trim().split(/\s+/).filter(Boolean);
+  const b = corrected.trim().split(/\s+/).filter(Boolean);
+  const key = (w: string) => w.toLowerCase().replace(/[^a-z0-9']/g, '');
+  const n = a.length, m = b.length;
+  const L: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = key(a[i]) === key(b[j]) ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const ops: DiffOp[] = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (key(a[i]) === key(b[j])) { ops.push({ type: 'same', text: b[j] }); i++; j++; }
+    else if (L[i + 1][j] >= L[i][j + 1]) ops.push({ type: 'del', text: a[i++] });
+    else ops.push({ type: 'add', text: b[j++] });
+  }
+  while (i < n) ops.push({ type: 'del', text: a[i++] });
+  while (j < m) ops.push({ type: 'add', text: b[j++] });
+  // merge neighbours of the same type
+  const merged: DiffOp[] = [];
+  for (const o of ops) {
+    const last = merged[merged.length - 1];
+    if (last && last.type === o.type) last.text += ' ' + o.text; else merged.push({ ...o });
+  }
+  return merged;
+}

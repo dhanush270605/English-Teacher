@@ -12,6 +12,7 @@ const P: Record<string, string> = {
   x: 'M6 6l12 12M18 6 6 18',
   play: 'M7 5v14l11-7z',
   pause: 'M7 5h4v14H7zM13 5h4v14h-4z',
+  mute: 'M4 9v6h4l5 4V5L8 9zM16.5 9.5l5 5M21.5 9.5l-5 5',
   volume: 'M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11',
   image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9.5a1 1 0 1 0 0-.01',
   briefcase: 'M4 8h16v11H4zM9 8V5h6v3M4 13h16',

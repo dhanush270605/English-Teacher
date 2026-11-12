@@ -27,7 +27,8 @@ function transcription() {
 }
 
 function chatReply(system, user) {
-  if (/You are Maya/.test(system)) return { reply: 'That sounds lovely! What did you cook with the vegetables?', corrections: [{ original: 'I go to market', corrected: 'I went to the market', natural: 'I went to the market', why: 'Use past simple for yesterday.', category: 'tenses' }, { original: 'I buyed', corrected: 'I bought', natural: 'I picked up', why: '“Buy” is irregular: bought.', category: 'tenses' }, { original: 'invented phrase not said', corrected: 'x', natural: 'x', why: 'should be filtered', category: 'other' }], relevance: 4 };
+  if (/You are Maya, the learner's friendly/.test(system)) return null;
+  if (/You are Maya/.test(system)) return { reply: 'That sounds lovely! What did you cook with the vegetables?', corrected: 'Yesterday I went to the market and I bought some vegetables. It was very nice and I enjoyed it.', natural: 'Yesterday I went to the market and picked up some vegetables – it was lovely.', corrections: [{ original: 'I go to market', corrected: 'I went to the market', natural: 'I went to the market', why: 'Use past simple for yesterday.', category: 'tenses' }, { original: 'I buyed', corrected: 'I bought', natural: 'I picked up', why: '“Buy” is irregular: bought.', category: 'tenses' }, { original: 'invented phrase not said', corrected: 'x', natural: 'x', why: 'should be filtered', category: 'other' }], relevance: 4 };
   if (/English examiner/.test(system)) return { corrections: [{ original: 'I buyed', corrected: 'I bought', natural: 'I bought', why: 'Irregular past tense.', category: 'tenses', practice: 'Say 3 sentences with bought.' }], relevance: 3, strengths: ['Clear ideas'], betterExpressions: [{ instead: 'very nice', try: 'really pleasant' }], summary: 'Good description with one tense error.', modelAnswer: 'In this picture, people are shopping at a busy market…', descriptionQuality: 3 };
   if (/vocabulary teacher/.test(system)) {
     const list = (user.match(/Words: (.*)/) || [, ''])[1].split(',').map((s) => s.trim()).filter(Boolean);
@@ -57,7 +58,7 @@ async function setupRoutes(context) {
     const sys = body.messages?.[0]?.content || '';
     const user = body.messages?.[body.messages.length - 1]?.content || '';
     const r = chatReply(sys, user);
-    const content = r === null ? 'Learner practised daily life talk; tense errors.' : JSON.stringify(r);
+    const content = /friendly, knowledgeable/.test(sys) ? 'REPLY: Today the Tamil Nadu government announced a new metro line. Want to know more?\nCORRECTED: What is the top news in Tamil Nadu today?\nNATURAL: What is the big news in Tamil Nadu today?\nTIPS: none' : r === null ? 'Learner practised daily life talk; tense errors.' : JSON.stringify(r);
     return route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'application/json' }, body: JSON.stringify({ choices: [{ message: { content } }], usage: { prompt_tokens: 100, completion_tokens: 50 } }) });
   });
   await context.route('https://generativelanguage.googleapis.com/**', (route) => route.fulfill({ status: 401, headers: cors, body: '{}' }));
@@ -155,6 +156,8 @@ async function record(page, ms = 2500) {
     await shot('04-review');
     await page.getByRole('button', { name: 'Send' }).click();
     await expectVisible(page, 'text=What did you cook');
+    await expectVisible(page, '.fixbox >> text=Correct version');
+    if (!(await page.locator('.diff .del').count())) throw new Error('no struck-out words in correction');
     await shot('05-conversation');
     await page.click('text=End & get feedback');
     await expectVisible(page, 'text=Session report');
@@ -300,6 +303,40 @@ async function record(page, ms = 2500) {
     await page.click('text=/Delete all recordings/');
     await page.getByRole('button', { name: 'Delete', exact: true }).click();
     await expectVisible(page, 'text=Delete all recordings (0)');
+  });
+
+  await test('ask-me-anything friend mode answers with web info and shows correction', async () => {
+    await page.goto(BASE + '#/friend');
+    await page.click('text=What is the top news in Tamil Nadu today?');
+    await expectVisible(page, 'text=new metro line');
+    await expectVisible(page, '.fixbox');
+    await shot('12-friend');
+  });
+
+  await test('fluency gym: 4-3-2 drill runs three rounds with stats', async () => {
+    await page.goto(BASE + '#/fluency');
+    await page.click('text=Start round 1');
+    for (let r = 0; r < 3; r++) {
+      await page.getByRole('button', { name: 'Start recording' }).click();
+      await page.waitForTimeout(1600);
+      await page.getByRole('button', { name: 'Stop recording' }).click();
+      if (r < 2) await expectVisible(page, `text=Round ${r + 2} of 3`);
+    }
+    await expectVisible(page, 'text=Your progress across rounds');
+    await shot('13-fluency');
+  });
+
+  await test('think in English: story mode keeps its own topic and flow', async () => {
+    await page.goto(BASE + '#/thinking');
+    await page.getByRole('radio', { name: 'Story' }).click();
+    await page.waitForTimeout(300);
+    const topic = (await page.locator('.card >> nth=0').innerText()).split('\n')[1];
+    await page.getByRole('button', { name: 'Start', exact: true }).click();
+    await expectVisible(page, 'text=Think in English…');
+    const prepTopic = await page.locator('.card >> nth=0').innerText();
+    if (!prepTopic.includes(topic.slice(0, 20))) throw new Error(`topic changed: "${topic}" vs "${prepTopic}"`);
+    await expectVisible(page, 'text=Story', 9000);
+    if (await page.locator('text=/Question \\d of/').count()) throw new Error('jumped into instant answers');
   });
 
   await test('rate-limit (429) shows graceful error with retry', async () => {

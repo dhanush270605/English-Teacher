@@ -4,7 +4,7 @@ import { Top, ErrorBox } from '../ui/components';
 import { Icon } from '../ui/icons';
 import { SpeakCapture, type CaptureResult } from '../ui/SpeakCapture';
 import { MODE_LABELS } from '../engine/scheduler';
-import { db, getKV, getProfile, setKV, useLive } from '../services/db';
+import { db, getKV, getProfile, saveProfile, setKV, useLive } from '../services/db';
 import { chat, chatJson, friendlyError } from '../services/ai/router';
 import { summarySystem, teacherSystem } from '../services/ai/prompts';
 import { addPracticeSeconds, completeTask, learnerCtx, markActiveToday, previousScores } from '../services/learning';
@@ -12,7 +12,7 @@ import { verifyCorrections, scoreSession, compareToPrevious } from '../engine/sc
 import { sessionMetrics } from '../engine/metrics';
 import { speak, stopSpeaking } from '../services/speech/tts';
 import { go } from '../router';
-import { ScoreGrid, CorrectionCard, MetricsPanel } from '../ui/Report';
+import { ScoreGrid, CorrectionCard, MetricsPanel, InlineFix } from '../ui/Report';
 import { analyzeWeaknesses, recommendMode } from '../engine/recommender';
 import { dayIndexOf } from '../engine/scheduler';
 
@@ -28,7 +28,11 @@ const OPENERS: Record<string, string[]> = {
   travel: ['Welcome to the hotel! Do you have a reservation with us?', 'Hello, this is the railway enquiry desk. How can I help you today?'],
   public: ['Let’s practise a short speech. In one minute, tell me why reading books is important.', 'Give a 60-second speech introducing your hometown to visitors.'],
   group: ['Welcome to our group discussion. Today’s topic: “Should mobile phones be banned in classrooms?” Arjun thinks yes. What’s your view?'],
-  debate: ['Our debate motion: “Online learning is better than classroom learning.” I’ll argue against it. Please open with your argument for it.'],
+  debate: [
+    'Debate time! Motion: “Online learning is better than classroom learning.” You argue FOR it, I argue AGAINST. Give me your opening argument – or name any other topic you want to fight about.',
+    'Debate time! Motion: “Social media does more harm than good.” You argue FOR it, I argue AGAINST. Your opening argument, please – or suggest your own topic.',
+    'Debate time! Motion: “AI will create more jobs than it destroys.” You argue FOR it, I’ll argue AGAINST. Make your opening point – or pick a different topic.',
+  ],
   interview: ['Good morning, thanks for coming in. Let’s start – could you tell me a little about yourself?'],
   presentation: ['Let’s rehearse your presentation. What is your topic, and how would you open it?'],
   situational: ['Scene: you are at a clinic reception and feeling unwell. I’m the receptionist. “Good morning, how can I help you?”', 'Scene: your online order arrived damaged and you are calling customer care. “Hello, thank you for calling. How may I help?”'],
@@ -49,10 +53,15 @@ export function TeacherModes() {
     <>
       <Top title="AI Teacher" />
       <div class="screen" style={{ paddingTop: 4 }}>
-        <p class="muted small" style={{ marginTop: 0 }}>Speak freely. Maya waits until you finish, then replies. Corrections are collected and shown at the end (change this in Profile → Learning).</p>
+        <p class="muted small" style={{ marginTop: 0 }}>Speak freely. Maya waits until you finish, then replies in text. The correct version of everything you say appears right under your message.</p>
         {unfinished && (
           <div class="notice mb">You have an unfinished {MODE_LABELS[unfinished.mode || ''] || ''} conversation. <button class="btn sm soft" onClick={() => go(`#/teacher/${unfinished.mode}?resume=${unfinished.id}`)}>Resume</button></div>
         )}
+        <div class="card tap row mb" onClick={() => go('#/friend')} style={{ gap: 12 }}>
+          <div class="task" style={{ padding: 0, border: 'none', background: 'none' }}><div class="ico"><Icon name="spark" size={20} /></div></div>
+          <div class="grow"><b>Ask me anything</b><div class="small muted">Talk like with a friend – news, Tamil Nadu, stocks, tech. Live web answers in voice + your English corrected.</div></div>
+          <Icon name="chevron" size={18} />
+        </div>
         <div class="card hero tap" onClick={() => go(`#/teacher/${rec}`)}>
           <div class="muted small">Recommended for you</div>
           <div class="row between mt">
@@ -82,7 +91,9 @@ export function Conversation({ mode }: { mode: string }) {
   const [busy, setBusy] = useState('');
   const [speakingNow, setSpeakingNow] = useState(false);
   const [error, setError] = useState('');
-  const [voiceOn, setVoiceOn] = useState(true);
+  const [voiceOn, setVoiceOnState] = useState(false);
+  const voiceRef = useRef(false);
+  const setVoiceOn = (v: boolean) => { voiceRef.current = v; setVoiceOnState(v); saveProfile({ teacherVoice: v }); };
   const [feedback, setFeedback] = useState<'end' | 'turn' | 'realtime'>('end');
   const [report, setReport] = useState<any>(null);
   const [ending, setEnding] = useState(false);
@@ -97,6 +108,8 @@ export function Conversation({ mode }: { mode: string }) {
     (async () => {
       const p = await getProfile();
       setFeedback(p.feedbackMode);
+      voiceRef.current = !!p.teacherVoice;
+      setVoiceOnState(!!p.teacherVoice);
       accent.current = p.accent;
       storeRec.current = p.storeRecordings;
       summary.current = await getKV<string>('teacherMemory', '');
@@ -114,7 +127,7 @@ export function Conversation({ mode }: { mode: string }) {
       const list = OPENERS[mode] || OPENERS.friendly;
       const opener = list[Math.floor(Math.random() * list.length)];
       setTurns([{ idx: 0, role: 'ai', text: opener, ts: Date.now() }]);
-      if (voiceOn) say(opener);
+      if (voiceRef.current) say(opener);
     })();
     return () => { stopSpeaking(); };
   }, [mode]);
@@ -156,16 +169,17 @@ export function Conversation({ mode }: { mode: string }) {
     try {
       const ctx = await learnerCtx(summary.current);
       const messages = history.map((t) => ({ role: t.role === 'ai' ? ('assistant' as const) : ('user' as const), content: t.role === 'ai' ? JSON.stringify({ reply: t.text }) : t.text }));
-      const res = await chatJson<{ reply: string; corrections?: Correction[]; relevance?: number }>({ purpose: 'teacher', system: teacherSystem(mode, ctx, feedback), messages, tier: 'fast', maxTokens: 600, temperature: 0.6 });
+      const res = await chatJson<{ reply: string; corrected?: string; natural?: string; corrections?: Correction[]; relevance?: number }>({ purpose: 'teacher', system: teacherSystem(mode, ctx, feedback), messages, tier: 'fast', maxTokens: 900, temperature: 0.6 });
+      const fix = typeof res.corrected === 'string' && res.corrected.trim() ? { corrected: res.corrected.trim().slice(0, 2000), natural: typeof res.natural === 'string' ? res.natural.trim().slice(0, 2000) : undefined } : undefined;
       const last = history[history.length - 1];
       const verified = verifyCorrections(last.text, Array.isArray(res.corrections) ? res.corrections : []);
-      if (userTurnId) await db.turns.update(userTurnId, { corrections: verified, relevance: typeof res.relevance === 'number' ? res.relevance : undefined });
+      if (userTurnId) await db.turns.update(userTurnId, { corrections: verified, fix, relevance: typeof res.relevance === 'number' ? res.relevance : undefined });
       const reply = String(res.reply || '').slice(0, 1200) || 'Could you tell me a bit more?';
       const aiTurn: LiveTurn = { idx: history.length, role: 'ai', text: reply, ts: Date.now() };
-      setTurns((t) => t.map((x) => (x.idx === last.idx ? { ...x, corrections: verified, relevance: res.relevance } : x)).concat(aiTurn));
+      setTurns((t) => t.map((x) => (x.idx === last.idx ? { ...x, corrections: verified, fix, relevance: res.relevance } : x)).concat(aiTurn));
       await db.turns.add({ sessionId: sid, idx: aiTurn.idx, role: 'ai', text: reply, ts: aiTurn.ts });
       setBusy('');
-      if (voiceOn) say(reply);
+      if (voiceRef.current) say(reply);
       // keep a compact rolling summary instead of resending long histories
       const userCount = history.filter((t) => t.role === 'user').length;
       if (userCount > 0 && userCount % 8 === 0) {
@@ -236,13 +250,14 @@ export function Conversation({ mode }: { mode: string }) {
   return (
     <>
       <Top title={MODE_LABELS[mode] || 'Conversation'} backTo="#/teacher" right={
-        <button class="icon-btn" aria-label={voiceOn ? 'Mute teacher voice' : 'Unmute teacher voice'} onClick={() => { setVoiceOn(!voiceOn); stopSpeaking(); }}>
-          <Icon name={voiceOn ? 'volume' : 'x'} size={20} />
+        <button class="icon-btn" aria-label={voiceOn ? 'Mute teacher voice' : 'Unmute teacher voice'} onClick={() => { setVoiceOn(!voiceOn); stopSpeaking(); }} title={voiceOn ? 'Teacher voice on' : 'Teacher voice off'}>
+          <Icon name={voiceOn ? 'volume' : 'mute'} size={20} />
         </button>
       } />
       <div class="screen no-nav" style={{ paddingTop: 6 }}>
         <div class="chat" aria-live="polite">
           {turns.map((t) => (
+            <>
             <div class={`bubble ${t.role === 'ai' ? 'ai' : 'me'}`}>
               {t.text}
               <div class="meta">
@@ -250,10 +265,9 @@ export function Conversation({ mode }: { mode: string }) {
                 {t.role === 'user' && t.audioUrl && <button onClick={() => new Audio(t.audioUrl).play()}>Play my voice</button>}
                 {t.role === 'user' && t.transcript?.engine === 'typed' && <span>typed</span>}
               </div>
-              {t.role === 'user' && feedback !== 'end' && (t.corrections || []).map((c) => (
-                <div class="inline-fix"><span class="strike">{c.original}</span> → <b>{c.corrected}</b><div class="tiny muted">{c.why}</div></div>
-              ))}
             </div>
+            {t.role === 'user' && <InlineFix said={t.text} fix={t.fix} corrections={t.corrections} transcript={t.transcript} />}
+            </>
           ))}
           {busy && <div class="bubble ai"><span class="spinner" /></div>}
           <div ref={endRef} />

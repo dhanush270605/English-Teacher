@@ -28,6 +28,8 @@ interface Props {
   hint?: string;
 }
 
+const NUDGES = ['Keep going! Try “Let me think…”', 'Don’t stop – say “The thing is…”', 'Keep talking – “What I mean is…”', 'Keep going – “Another point is…”'];
+
 type Phase = 'idle' | 'recording' | 'transcribing' | 'review' | 'typing';
 
 export function SpeakCapture(p: Props) {
@@ -46,11 +48,15 @@ export function SpeakCapture(p: Props) {
   const tick = useRef<number>();
   const startedAt = useRef(0);
   const voiced = useRef(false);
+  const lastVoiceAt = useRef(0);
+  const coach = useRef(true);
+  const [nudge, setNudge] = useState('');
 
   useEffect(() => {
     (async () => {
       const a = await sttAvailability();
       setEngine(a.cloud ? 'cloud' : webSpeechSupported() ? 'web' : 'none');
+      coach.current = (await getProfile()).pauseCoach !== false;
     })();
     return () => { rec.current?.cancel(); clearInterval(tick.current); };
   }, []);
@@ -85,6 +91,9 @@ export function SpeakCapture(p: Props) {
           onNoSpeech: () => setWarn('I can’t hear anything yet – check that the microphone is not blocked and speak a little louder.'),
           onLevel: (l) => {
             setLevels((prev) => [...prev.slice(1), Math.max(0.05, l)]);
+            const now = performance.now();
+            if (l > 0.18) { lastVoiceAt.current = now; setNudge((n) => (n ? '' : n)); }
+            else if (coach.current && voiced.current && now - lastVoiceAt.current > 2200) setNudge((n) => n || NUDGES[Math.floor(Math.random() * NUDGES.length)]);
             if (!voiced.current && l > 0.18) { voiced.current = true; setWarn(''); p.onFirstVoice?.((performance.now() - startedAt.current) / 1000); }
           },
         });
@@ -107,6 +116,7 @@ export function SpeakCapture(p: Props) {
 
   async function stop() {
     clearInterval(tick.current);
+    setNudge('');
     if (engine === 'web' && live.current) {
       setPhase('transcribing');
       const t = await live.current.stop();
@@ -161,6 +171,7 @@ export function SpeakCapture(p: Props) {
 
   return (
     <div>
+      {nudge && phase === 'recording' && <div class="nudge" role="status">⏩ {nudge}</div>}
       {err && <div class="notice bad mb" role="alert">{err}</div>}
       {warn && <div class="notice mb" role="status">{warn}</div>}
       {engine === 'none' && phase !== 'typing' && (

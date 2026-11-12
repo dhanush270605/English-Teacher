@@ -8,7 +8,7 @@ import { LISTENING_THEMES, MINIMAL_PAIRS, PICTURE_CATEGORIES, THINKING_TOPICS } 
 import { wordsForLevel } from '../data/content/words';
 import { newWord, isDue } from '../engine/srs';
 import { chatJson } from './ai/router';
-import { analysisSystem, analysisUser, learnerContext, pictureSystem, wordDetailsSystem } from './ai/prompts';
+import { analysisSystem, analysisUser, learnerContext, pictureSystem, wordDetailsSystem, wordPickSystem } from './ai/prompts';
 import { computeMetrics, sessionMetrics } from '../engine/metrics';
 import { overallScore, scoreSession } from '../engine/scoring';
 import { syncNotifications, milestone } from '../notifications/notify';
@@ -176,13 +176,64 @@ async function introduceWords(): Promise<WordRecord[]> {
   const start = new Date(); start.setHours(0, 0, 0, 0);
   const introduced = await db.words.where('introducedAt').aboveOrEqual(start.getTime()).toArray();
   if (introduced.length >= p.wordsPerDay) return introduced;
-  const have = new Set((await db.words.toArray()).map((w) => w.word));
-  const level = p.level === 'unknown' ? 'B1' : p.level;
-  const fresh = wordsForLevel(level).filter((w) => !have.has(w.word)).slice(0, p.wordsPerDay - introduced.length);
-  const rows = fresh.map((f) => ({ ...newWord(f.word, f.level), introducedAt: Date.now() }));
+  const rows = await freshWords(p.wordsPerDay - introduced.length, p.vocabLevel || 'B2');
   if (rows.length) await db.words.bulkPut(rows);
   await setKV('wordsDate', today);
   return [...introduced, ...rows];
+}
+
+const WORD_THEMES = ['feelings & reactions', 'personality & behaviour', 'relationships, friends & conflict', 'college, work & ambition', 'arguments, opinions & persuasion', 'phrasal verbs people use every day', 'everyday idioms & expressions', 'news, money & society', 'describing situations & problems', 'social media & modern life'];
+
+/** New words: chosen by AI (expressive, situation-based, never repeated), seed list as fallback. */
+async function freshWords(n: number, level: string): Promise<WordRecord[]> {
+  if (n <= 0) return [];
+  const all = await db.words.toArray();
+  const have = new Set(all.map((w) => w.word.toLowerCase()));
+  const out: WordRecord[] = [];
+  try {
+    const theme = WORD_THEMES[dayIndexOf() % WORD_THEMES.length];
+    const avoid = all.slice(-160).map((w) => w.word).join(', ');
+    const res = await chatJson<{ words: (WordDetails & { word: string })[] }>({
+      purpose: 'vocab-pick', tier: 'fast', maxTokens: 2200, temperature: 0.9,
+      system: wordPickSystem(level),
+      messages: [{ role: 'user', content: `Pick ${n} words/expressions. Today's theme: ${theme}. Do NOT use any of these (already learned): ${avoid || 'none'}.` }],
+    });
+    for (const d of res.words || []) {
+      const word = String(d.word || '').trim().toLowerCase();
+      if (!word || word.length > 40 || have.has(word) || !d.meaning) continue;
+      have.add(word);
+      out.push({ ...newWord(word, level), introducedAt: Date.now(), topic: theme, details: cleanDetails(d) });
+      if (out.length >= n) break;
+    }
+  } catch { /* offline / no key → seed list */ }
+  if (out.length < n) {
+    for (const f of wordsForLevel(level)) {
+      if (out.length >= n) break;
+      if (have.has(f.word)) continue;
+      have.add(f.word);
+      out.push({ ...newWord(f.word, f.level), introducedAt: Date.now() });
+    }
+  }
+  return out;
+}
+
+function cleanDetails(d: any): WordDetails {
+  return {
+    ipa: d.ipa, meaning: String(d.meaning).slice(0, 300), tamil: d.tamil?.slice(0, 200), example: String(d.example || '').slice(0, 300),
+    dailyExample: d.dailyExample?.slice(0, 300), synonyms: (d.synonyms || []).slice(0, 3), antonyms: (d.antonyms || []).slice(0, 2),
+    commonMistake: d.commonMistake?.slice(0, 300), conversation: d.conversation?.slice(0, 400), pos: d.pos,
+  };
+}
+
+/** "I already know this" – mark as known and bring in a replacement word for today. */
+export async function skipKnownWord(word: string): Promise<WordRecord | undefined> {
+  const w = await db.words.get(word);
+  if (w) await db.words.put({ ...w, status: 'known', reps: 5, interval: 365, due: Date.now() + 365 * 86400000, introducedAt: 0 });
+  const p = await getProfile();
+  const [rep] = await freshWords(1, p.vocabLevel || 'B2');
+  if (!rep) return undefined;
+  await db.words.put(rep);
+  return rep;
 }
 
 export async function ensureWordDetails(words: WordRecord[]): Promise<WordRecord[]> {
@@ -195,11 +246,7 @@ export async function ensureWordDetails(words: WordRecord[]): Promise<WordRecord
     for (const d of res.words || []) {
       const w = batch.find((b) => b.word.toLowerCase() === String(d.word || '').toLowerCase());
       if (!w || !d.meaning) continue;
-      const details: WordDetails = {
-        ipa: d.ipa, meaning: String(d.meaning).slice(0, 300), tamil: d.tamil?.slice(0, 200), example: String(d.example || '').slice(0, 300),
-        dailyExample: d.dailyExample?.slice(0, 300), synonyms: (d.synonyms || []).slice(0, 3), antonyms: (d.antonyms || []).slice(0, 2),
-        commonMistake: d.commonMistake?.slice(0, 300), conversation: d.conversation?.slice(0, 400), pos: d.pos,
-      };
+      const details = cleanDetails(d);
       await db.words.update(w.word, { details });
       w.details = details;
     }

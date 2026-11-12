@@ -11,8 +11,8 @@ export const THINKING_TOPICS = [
   'Describe your house to a guest', 'A habit you want to change', 'Explain a rule of a game you know', 'Is it better to live in a city or a village?',
   'Your plans for this weekend', 'Describe a teacher you remember', 'Explain artificial intelligence to a child', 'A mistake that taught you something',
   'Your favourite food and how it is made', 'Should students have part-time jobs?', 'Describe a busy market', 'What would you change about your college?',
-  'Explain how to stay healthy as a student', 'A book or story you like', 'Electric vehicles – the future?', 'Describe the weather today and how it affects you',
-  'Tell a story that begins: "The phone rang at midnight…"', 'Continue: "When I opened the door, I could not believe…"', 'Explain a news topic you heard this week', 'Convince me to visit Tamil Nadu',
+  'Explain how to stay healthy as a student', 'A book or film that changed how you think', 'Electric vehicles – the future?', 'Describe the weather today and how it affects you',
+  'Explain a news topic you heard this week', 'Convince me to visit Tamil Nadu',
 ];
 
 export const INSTANT_QUESTIONS = [
@@ -110,4 +110,49 @@ export const READ_ALOUD = [
   'I would really appreciate it if you could give me some feedback on my presentation.',
   'Although the traffic was heavy, we reached the station on time.',
   'Very well, we will visit the village on Wednesday with the whole family.',
+];
+
+export const STORY_STARTERS = [
+  'The phone rang at midnight. When I picked it up, a voice said my name and…',
+  'When I opened the door, I could not believe what I saw…',
+  'The bus stopped in the middle of nowhere, and the driver got off without a word…',
+  'I found an old letter inside a second-hand book. It said…',
+  'On the first day of college, I walked into the wrong classroom and…',
+  'The power went off during my exam, and suddenly…',
+  'My best friend called me and said, “Don’t tell anyone, but…”',
+  'I missed the last train home, so I…',
+  'A stranger handed me a bag and ran away. Inside the bag…',
+  'Everything was normal until my phone started showing messages from the future…',
+  'We were on a road trip to Kodaikanal when the car broke down and…',
+  'The interviewer looked at my resume, smiled, and asked a question I never expected…',
+  'I woke up and realised I could understand every language in the world…',
+  'At the wedding, the groom suddenly stood up and announced…',
+  'The rain would not stop, and the water was rising in our street…',
+  'I won a prize I never entered, and the only condition was…',
+];
+
+// Fluency Gym
+export const SHADOWING_TEXTS = [
+  'Honestly, I think the best way to learn something new is to start small. You do a little every day, you make mistakes, and slowly it becomes natural.',
+  'So yesterday I was planning to finish my assignment early, but then my friends called and we ended up going out for dinner. It was fun, but I stayed up late to finish the work.',
+  'In my opinion, online classes are useful, but they can never fully replace a real classroom. When you are with other people, you ask more questions and you stay focused.',
+  'Let me tell you about my project. We built a tool that checks how secure a website is. It scans the code, finds weak points, and shows a clear report that anyone can understand.',
+  'Well, the thing is, I usually wake up around seven, have a quick breakfast, and then head to college. On the way, I listen to podcasts to improve my English.',
+  'If I could travel anywhere, I would go to Japan. I have always wanted to see how a country can be so modern and so traditional at the same time.',
+  'To be honest, I was really nervous before my first presentation. But once I started speaking, I forgot about the audience and just focused on my message.',
+  'What I really like about my hometown is the food. Every street has its own speciality, and people are always happy to recommend a place to eat.',
+  'Could you give me a moment? Let me think about it. Okay, so I would say the biggest challenge in my last project was managing time across the whole team.',
+  'Technology has made our lives easier, but it has also made us more distracted. Most of us check our phones dozens of times a day without even noticing it.',
+  'I completely understand your point, but I see it a little differently. In my experience, practice matters more than talent, especially at the beginning.',
+  'Last weekend we visited a beautiful waterfall. The road was a bit rough, but the view at the top was absolutely worth it, and we stayed there until sunset.',
+];
+
+export const THINKING_PHRASES: { group: string; phrases: string[] }[] = [
+  { group: 'Buy time (instead of silence)', phrases: ['Let me think about that for a second…', 'That’s a good question.', 'Well, the thing is…', 'How can I put this…', 'Let me see…'] },
+  { group: 'Give your opinion', phrases: ['In my opinion,…', 'Personally, I feel that…', 'The way I see it,…', 'If you ask me,…', 'I’m pretty sure that…'] },
+  { group: 'Add more', phrases: ['On top of that,…', 'Another thing is…', 'Not only that, but…', 'And also,…', 'What’s more,…'] },
+  { group: 'Give an example', phrases: ['For example,…', 'Take … for instance.', 'Let me give you an example.', 'Like when…', 'A good example is…'] },
+  { group: 'Explain / clarify', phrases: ['What I mean is…', 'In other words,…', 'To put it simply,…', 'Basically, my point is…', 'Let me explain.'] },
+  { group: 'Disagree politely', phrases: ['I see your point, but…', 'I’m not sure I agree.', 'That’s true, however…', 'I see it a bit differently.', 'Fair enough, but…'] },
+  { group: 'Finish', phrases: ['So overall,…', 'To sum up,…', 'That’s why I think…', 'At the end of the day,…', 'So yeah, that’s my view.'] },
 ];

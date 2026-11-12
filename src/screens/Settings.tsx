@@ -13,6 +13,7 @@ import { webSpeechSupported } from '../services/speech/stt';
 import { dateKey } from '../engine/scheduler';
 import { OVERALL_WEIGHTS } from '../engine/scoring';
 import { go } from '../router';
+import { BUILD, checkForUpdate, onUpdateState, type UpdateState } from '../services/updater';
 
 export function KeysSettings() {
   const [groq, setGroq] = useState('');
@@ -259,6 +260,10 @@ export function LearningSettings() {
         <Segmented value={p.accent} onChange={(v) => saveProfile({ accent: v })} options={[{ value: 'en-US', label: 'American' }, { value: 'en-GB', label: 'British' }]} />
         <div class="label mt mb">Difficulty (adapts automatically)</div>
         <Segmented value={p.difficulty} onChange={(v) => saveProfile({ difficulty: v })} options={[1, 2, 3, 4, 5].map((d) => ({ value: d, label: String(d) }))} />
+        <div class="label mt mb">New word difficulty</div>
+        <Segmented value={p.vocabLevel || 'B2'} onChange={(v) => saveProfile({ vocabLevel: v })} options={[{ value: 'B2', label: 'Upper-intermediate' }, { value: 'C1', label: 'Advanced' }]} />
+        <div class="card mt row"><div class="grow"><b class="small">Teacher replies by voice</b><div class="tiny muted">Off = text replies only (your corrections always show under your message).</div></div><Toggle checked={!!p.teacherVoice} onChange={(v) => saveProfile({ teacherVoice: v })} label="Teacher voice" /></div>
+        <div class="card mt row"><div class="grow"><b class="small">“Keep going” pause coach</b><div class="tiny muted">Shows a nudge when you stay silent for more than 2 seconds while recording.</div></div><Toggle checked={p.pauseCoach !== false} onChange={(v) => saveProfile({ pauseCoach: v })} label="Pause coach" /></div>
         <div class="card mt row"><div class="grow"><b class="small">Tamil explanations</b><div class="tiny muted">Short Tamil hints for grammar and words.</div></div><Toggle checked={p.tamilHelp} onChange={(v) => saveProfile({ tamilHelp: v })} label="Tamil help" /></div>
       </div>
     </>
@@ -319,10 +324,21 @@ export function Diagnostics() {
 
 
 export function About() {
+  const [u, setU] = useState<UpdateState | null>(null);
+  useEffect(() => onUpdateState(setU), []);
   return (
     <>
       <Top title="About & limitations" backTo="#/profile" />
       <div class="screen small" style={{ paddingTop: 4 }}>
+        <div class="card mb">
+          <div class="row between"><b>App version</b><span class="badge num">build {BUILD || 'dev'}</span></div>
+          <div class="tiny muted mt">Updates download automatically from GitHub when you open the app and install the next time you open it.</div>
+          {u && u.status !== 'unsupported' && <div class="small mt">Status: {u.status === 'ready' ? `Update ${u.latest} downloaded – restart the app to use it.` : u.status === 'up-to-date' ? 'You have the latest version ✓' : u.status === 'error' ? `Couldn’t check (${u.message})` : u.status}</div>}
+          <div class="row mt">
+            {isNative() && <button class="btn sm soft" disabled={u?.status === 'checking' || u?.status === 'downloading'} onClick={() => checkForUpdate()}>Check for updates</button>}
+            {u?.status === 'ready' && <button class="btn sm" onClick={() => checkForUpdate({ applyNow: true })}>Restart now</button>}
+          </div>
+        </div>
         <div class="card stack">
           <div><b>How scores are calculated</b><br />Every score comes from a fixed formula over measured evidence – never a number invented by the AI. Grammar uses only corrections whose exact words appear in your transcript. Fluency uses word timings (pauses, words between pauses, fillers, rate). Vocabulary uses lexical diversity (MTLD) and the share of less-common words. Overall weights: {Object.entries(OVERALL_WEIGHTS).map(([k, v]) => `${k} ${Math.round(v * 100)}%`).join(', ')}.</div>
           <div><b>Pronunciation is approximate.</b> It reflects how clearly a speech recogniser understood you, not phoneme-by-phoneme accent analysis.</div>

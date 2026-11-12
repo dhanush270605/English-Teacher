@@ -67,7 +67,7 @@ export interface Scores {
   relevance?: number;
 }
 
-export type SessionType = 'conversation' | 'picture' | 'interview' | 'impromptu' | 'assessment' | 'listening' | 'pronunciation' | 'grammar' | 'vocab' | 'reading';
+export type SessionType = 'fluency' | 'friend' | 'conversation' | 'picture' | 'interview' | 'impromptu' | 'assessment' | 'listening' | 'pronunciation' | 'grammar' | 'vocab' | 'reading';
 
 export interface SessionRecord {
   id?: number;
@@ -97,6 +97,8 @@ export interface Turn {
   transcript?: Transcript;
   corrections?: Correction[];
   relevance?: number;
+  fix?: { corrected: string; natural?: string };
+  sources?: { title: string; uri: string }[];
 }
 
 export interface MistakeRecord {
@@ -186,4 +188,8 @@ export interface LearnerProfile {
   createdAt: number;
   onboarded: boolean;
   weeklyGoalMinutes: number;
+  vocabLevel?: 'B2' | 'C1';
+  teacherVoice?: boolean;
+  pauseCoach?: boolean;
+  prefsVersion?: number;
 }

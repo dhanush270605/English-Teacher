@@ -2,6 +2,8 @@ import { Top } from '../ui/components';
 import { Icon } from '../ui/icons';
 
 const TILES = [
+  { href: '#/friend', icon: 'spark', title: 'Ask me anything', text: 'Voice chat about news, stocks, life – with live web search' },
+  { href: '#/fluency', icon: 'wave', title: 'Fluency Gym', text: 'Stop pausing: 4-3-2 drill, shadowing, thinking phrases' },
   { href: '#/picture', icon: 'image', title: 'Picture speaking', text: 'Describe real photos for 30s–2 min' },
   { href: '#/interview', icon: 'briefcase', title: 'Interview trainer', text: 'HR, technical, STAR, mock interviews' },
   { href: '#/vocab/learn', icon: 'book', title: 'Vocabulary', text: 'Daily words, flashcards, quizzes' },

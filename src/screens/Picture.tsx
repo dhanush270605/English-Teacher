@@ -3,7 +3,7 @@ import { Top, Loading, ErrorBox, Segmented, toast } from '../ui/components';
 import { Icon } from '../ui/icons';
 import { SpeakCapture, type CaptureResult } from '../ui/SpeakCapture';
 import { PICTURE_CATEGORIES } from '../data/content/practice';
-import { nextPicture, markPictureUsed, pictureForAI, type Picture } from '../services/pictures';
+import { nextPicture, markPictureUsed, pictureForAI, pictureDataUrl, type Picture } from '../services/pictures';
 import { analyzeSpeech, completeTask, previousScores, saveSession, type AnalysisResult } from '../services/learning';
 import { compareToPrevious } from '../engine/scoring';
 import { ScoreGrid, CorrectionCard, MetricsPanel } from '../ui/Report';
@@ -35,10 +35,10 @@ export function PictureChallenge({ category }: { category?: string }) {
     return () => clearTimeout(t);
   }, [phase, prep]);
 
-  async function load() {
+  async function load(skipUrl?: string) {
     setError(''); setPhase('loading'); setResult(null);
     try {
-      const p = await nextPicture(cat);
+      const p = await nextPicture(cat, skipUrl ? [skipUrl] : []);
       setPic(p);
       setPrep(10);
       setPhase('prep');
@@ -75,15 +75,15 @@ export function PictureChallenge({ category }: { category?: string }) {
             <div class="label mt mb">Difficulty</div>
             <Segmented value={level} onChange={setLevel} options={[{ value: 'easy', label: 'Easy' }, { value: 'medium', label: 'Medium' }, { value: 'hard', label: 'Hard' }]} />
             <div class="card soft mt small">{PROMPTS[level]}</div>
-            {error && <div class="mt"><ErrorBox error={error} onRetry={load} /></div>}
-            <button class="btn block mt2" onClick={load}><Icon name="image" size={18} /> Show me a picture</button>
+            {error && <div class="mt"><ErrorBox error={error} onRetry={() => load()} /></div>}
+            <button class="btn block mt2" onClick={() => load()}><Icon name="image" size={18} /> Show me a picture</button>
             <p class="tiny muted center">Photos come from Wikimedia Commons (free, openly licensed).</p>
           </>
         )}
         {phase === 'loading' && <div><div class="pic skeleton" /><Loading text="Finding a picture…" /></div>}
         {pic && ['prep', 'speak', 'analyzing', 'report'].includes(phase) && (
           <>
-            <img class="pic" src={pic.thumb} alt={pic.caption || pic.title} loading="lazy" decoding="async" />
+            <PicImage pic={pic} onGiveUp={() => load(pic.url)} />
             <div class="tiny muted mt">{pic.credit}{pic.license ? ` · ${pic.license}` : ''} · Wikimedia Commons</div>
           </>
         )}
@@ -93,7 +93,7 @@ export function PictureChallenge({ category }: { category?: string }) {
             <div class="big-num num mt">{prep}</div>
             <div class="muted small">Look carefully. Recording starts automatically.</div>
             <div class="row mt" style={{ justifyContent: 'center' }}>
-              <button class="btn ghost sm" onClick={load}>Different picture</button>
+              <button class="btn ghost sm" onClick={() => load()}>Different picture</button>
               <button class="btn sm" onClick={() => setPrep(0)}>Start now</button>
             </div>
           </div>
@@ -122,10 +122,33 @@ export function PictureChallenge({ category }: { category?: string }) {
             )}
             <h2>Measurements</h2>
             <MetricsPanel m={result.metrics!} />
-            <button class="btn block mt2" onClick={load}><Icon name="refresh" size={18} /> New challenge</button>
+            <button class="btn block mt2" onClick={() => load()}><Icon name="refresh" size={18} /> New challenge</button>
           </div>
         )}
       </div>
     </>
+  );
+}
+
+/** Tries every standard thumbnail size, then a native download; asks for another photo if all fail. */
+function PicImage({ pic, onGiveUp }: { pic: Picture; onGiveUp: () => void }) {
+  const [i, setI] = useState(0);
+  const [src, setSrc] = useState(pic.thumbs?.[0] || pic.thumb);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { setI(0); setSrc(pic.thumbs?.[0] || pic.thumb); setLoaded(false); }, [pic.url]);
+  async function fail() {
+    const list = pic.thumbs?.length ? pic.thumbs : [pic.thumb];
+    if (i + 1 < list.length) { setI(i + 1); setSrc(list[i + 1]); return; }
+    if (!src.startsWith('data:')) {
+      const d = await pictureDataUrl(list.find((u) => /\/500px-/.test(u)) || list[0]);
+      if (d) { setSrc(d); return; }
+    }
+    onGiveUp();
+  }
+  return (
+    <div style={{ position: 'relative' }}>
+      {!loaded && <div class="pic skeleton" style={{ position: 'absolute', inset: 0 }} />}
+      <img class="pic" src={src} alt={pic.caption || pic.title} decoding="async" referrerpolicy="no-referrer" onLoad={() => setLoaded(true)} onError={fail} style={{ opacity: loaded ? 1 : 0 }} />
+    </div>
   );
 }

@@ -2,97 +2,112 @@
  {
   "name": "onboarding → home with daily plan",
   "ok": true,
-  "ms": 466
+  "ms": 432
  },
  {
   "name": "bottom navigation works for all tabs",
   "ok": true,
-  "ms": 458
+  "ms": 482
  },
  {
   "name": "theme switching (dark/light)",
   "ok": true,
-  "ms": 840
+  "ms": 844
  },
  {
   "name": "no horizontal overflow on main screens",
   "ok": true,
-  "ms": 3665
+  "ms": 3655
  },
  {
   "name": "AI teacher: record → transcript review → AI reply → session report",
   "ok": true,
-  "ms": 2852
+  "ms": 2883
  },
  {
   "name": "low-confidence transcription asks to check/repeat",
   "ok": true,
-  "ms": 2123
+  "ms": 2130
  },
  {
   "name": "offline: clear message, no crash",
   "ok": true,
-  "ms": 113
+  "ms": 144
  },
  {
   "name": "picture challenge: image → speak → report with model answer",
   "ok": true,
-  "ms": 2798
+  "ms": 2825
  },
  {
   "name": "vocabulary: AI word cards → learn all → review",
   "ok": true,
-  "ms": 591
+  "ms": 594
  },
  {
   "name": "grammar lesson: exercises → mastery",
   "ok": true,
-  "ms": 761
+  "ms": 709
  },
  {
   "name": "interview: question → voice answer → report",
   "ok": true,
-  "ms": 2531
+  "ms": 2565
  },
  {
   "name": "listening: dialogue + questions + transcript",
   "ok": true,
-  "ms": 255
+  "ms": 270
  },
  {
   "name": "assessment: grammar quiz part saves progress",
   "ok": true,
-  "ms": 564
+  "ms": 565
  },
  {
   "name": "progress dashboard shows real session data",
   "ok": true,
-  "ms": 198
+  "ms": 237
  },
  {
   "name": "mistake dictionary: mark as fixed",
   "ok": true,
-  "ms": 366
+  "ms": 376
  },
  {
   "name": "settings: keys test, notifications (browser notice), export, delete recordings",
   "ok": true,
-  "ms": 320
+  "ms": 325
+ },
+ {
+  "name": "ask-me-anything friend mode answers with web info and shows correction",
+  "ok": true,
+  "ms": 157
+ },
+ {
+  "name": "fluency gym: 4-3-2 drill runs three rounds with stats",
+  "ok": true,
+  "ms": 5216
+ },
+ {
+  "name": "think in English: story mode keeps its own topic and flow",
+  "ok": true,
+  "ms": 5678
  },
  {
   "name": "rate-limit (429) shows graceful error with retry",
   "ok": true,
-  "ms": 101
+  "ms": 182
  },
  {
   "name": "timer: start, pause, resume, finish",
   "ok": true,
-  "ms": 1327
+  "ms": 1328
  },
  {
   "name": "microphone permission denied shows guidance",
   "ok": true,
-  "ms": 2459
+  "ms": 2501
  },
  {
   "name": "no uncaught runtime errors",

@@ -3,7 +3,7 @@ import type { WordRecord } from '../types';
 import { Top, Loading, ErrorBox, Empty, toast } from '../ui/components';
 import { Icon } from '../ui/icons';
 import { db, getProfile, useLive } from '../services/db';
-import { completeTask, ensureWordDetails, todaysNewWords } from '../services/learning';
+import { completeTask, ensureWordDetails, skipKnownWord, todaysNewWords } from '../services/learning';
 import { review } from '../engine/srs';
 import { speak } from '../services/speech/tts';
 import { chatJson, friendlyError } from '../services/ai/router';
@@ -55,6 +55,20 @@ function Learn() {
   const w = words[Math.min(i, words.length - 1)];
   const d = w.details;
 
+  async function knowIt() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const rep = await skipKnownWord(w.word);
+      const list = [...words!];
+      if (rep) list[i] = rep; else list.splice(i, 1);
+      setWords(list);
+      if (rep && !rep.details) setWords([...(await ensureWordDetails(list))]);
+      toast(rep ? `Swapped for “${rep.word}”` : 'Marked as known');
+    } catch (e) { setError(friendlyError(e)); }
+    setSaving(false);
+  }
+
   async function markLearned() {
     if (saving) return; // ignore double taps
     setSaving(true);
@@ -90,6 +104,7 @@ function Learn() {
           </div>
         )}
       </div>
+      <button class="btn sm ghost mt" disabled={saving} onClick={knowIt}>✓ I already know this word – give me another</button>
       {d && <UseIt word={w} />}
       <div class="row mt">
         <button class="btn ghost" disabled={i === 0} onClick={() => setI(i - 1)}><Icon name="back" size={18} /></button>

@@ -22,11 +22,18 @@ jobs:
           cache: npm
 
       - name: Install, test and build web app
+        env:
+          VITE_BUILD: ${{ github.run_number }}
         run: |
           npm ci
           npm test
           npm run build
+          npx playwright install --with-deps chromium
+          node tests/e2e/run.cjs
           npx cap sync android
+          (cd dist && zip -qr ../web-bundle.zip .)
+          echo "{\"build\": ${{ github.run_number }}}" > version.json
+          cat version.json
 
       - uses: actions/setup-java@v5
         with:
@@ -106,4 +113,7 @@ jobs:
           body: |
             Install on Android: download **EnglishMastery.apk** below, open it, allow "Install unknown apps", Install.
             Signing key: ${{ steps.sign.outputs.persistent == 'true' && 'permanent (updates install over the old version)' || 'temporary (uninstall the old version before installing this one)' }}
-          files: EnglishMastery.apk
+          files: |
+            EnglishMastery.apk
+            web-bundle.zip
+            version.json
