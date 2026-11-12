@@ -63,6 +63,7 @@ export async function chat(req: ChatRequest, deps: RouterDeps = defaultDeps): Pr
   const cfg = await deps.config();
   const order = req.image ? (['gemini'] as ProviderId[]) : req.search ? (['gemini', 'groq'] as ProviderId[]) : cfg.order;
   let lastErr: AIError | undefined;
+  const errs: AIError[] = [];
   let tried = 0;
   for (const p of order) {
     const key = await deps.getKey(p);
@@ -82,6 +83,7 @@ export async function chat(req: ChatRequest, deps: RouterDeps = defaultDeps): Pr
       await recordUsage(p, { requests: 1, errors: 1 });
       if (err.kind === 'quota' || err.kind === 'server') cooldownUntil[p] = Date.now() + (err.retryAfterMs || 60000);
       lastErr = err;
+      errs.push(err);
       if (err.kind === 'bad_request' && req.json) {
         // some models reject response_format; retry once without it on the same provider
         try {
@@ -93,6 +95,7 @@ export async function chat(req: ChatRequest, deps: RouterDeps = defaultDeps): Pr
     }
   }
   if (!tried && !lastErr) throw new AIError('no_provider', 'Add a free Groq or Gemini API key in Profile → AI keys to enable the AI teacher.');
+  if (errs.length > 1 && lastErr) throw new AIError(lastErr.kind, errs.map((x) => `${x.provider === 'gemini' ? 'Gemini' : 'Groq'}: ${x.message.slice(0, 160)}`).join(' · '), lastErr.retryAfterMs, lastErr.provider);
   throw lastErr || new AIError('no_provider', 'No AI provider available.');
 }
 

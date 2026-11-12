@@ -72,9 +72,11 @@ export async function markPictureUsed(p: Picture) { await markUsed('pic:' + p.ur
 export async function pictureDataUrl(url: string): Promise<string | undefined> {
   try {
     if (!isNative()) return undefined;
-    const r = await CapacitorHttp.request({ url, method: 'GET', responseType: 'blob' as any, headers: { 'User-Agent': 'EnglishMasteryApp/1.0 (personal learning app)' } });
-    if (r.status >= 400 || typeof r.data !== 'string') return undefined;
-    const mime = /\.png/i.test(url) ? 'image/png' : 'image/jpeg';
+    const r = await CapacitorHttp.request({ url, method: 'GET', responseType: 'blob' as any, connectTimeout: 10000, readTimeout: 20000, headers: { 'User-Agent': 'EnglishMasteryApp/1.1 (https://github.com/dhanush270605/English-Teacher; personal learning app)' } });
+    if (r.status >= 400 || typeof r.data !== 'string' || r.data.length < 500) return undefined;
+    const ct = String(Object.entries(r.headers || {}).find(([k]) => k.toLowerCase() === 'content-type')?.[1] || '');
+    if (ct && !ct.startsWith('image/')) return undefined;
+    const mime = ct.split(';')[0] || (/\.png/i.test(url) ? 'image/png' : 'image/jpeg');
     return `data:${mime};base64,${r.data}`;
   } catch { return undefined; }
 }

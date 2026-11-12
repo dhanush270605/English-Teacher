@@ -2,116 +2,116 @@
  {
   "name": "onboarding → home with daily plan",
   "ok": true,
-  "ms": 432
+  "ms": 562
  },
  {
   "name": "bottom navigation works for all tabs",
   "ok": true,
-  "ms": 482
+  "ms": 474
  },
  {
   "name": "theme switching (dark/light)",
   "ok": true,
-  "ms": 844
+  "ms": 877
  },
  {
   "name": "no horizontal overflow on main screens",
   "ok": true,
-  "ms": 3655
+  "ms": 3665
  },
  {
   "name": "AI teacher: record → transcript review → AI reply → session report",
   "ok": true,
-  "ms": 2883
+  "ms": 2958
  },
  {
   "name": "low-confidence transcription asks to check/repeat",
   "ok": true,
-  "ms": 2130
+  "ms": 2134
  },
  {
   "name": "offline: clear message, no crash",
   "ok": true,
-  "ms": 144
+  "ms": 131
  },
  {
   "name": "picture challenge: image → speak → report with model answer",
   "ok": true,
-  "ms": 2825
+  "ms": 2889
  },
  {
   "name": "vocabulary: AI word cards → learn all → review",
   "ok": true,
-  "ms": 594
+  "ms": 644
  },
  {
   "name": "grammar lesson: exercises → mastery",
   "ok": true,
-  "ms": 709
+  "ms": 788
  },
  {
   "name": "interview: question → voice answer → report",
   "ok": true,
-  "ms": 2565
+  "ms": 2581
  },
  {
   "name": "listening: dialogue + questions + transcript",
   "ok": true,
-  "ms": 270
+  "ms": 250
  },
  {
   "name": "assessment: grammar quiz part saves progress",
   "ok": true,
-  "ms": 565
+  "ms": 570
  },
  {
   "name": "progress dashboard shows real session data",
   "ok": true,
-  "ms": 237
+  "ms": 208
  },
  {
   "name": "mistake dictionary: mark as fixed",
   "ok": true,
-  "ms": 376
+  "ms": 362
  },
  {
   "name": "settings: keys test, notifications (browser notice), export, delete recordings",
   "ok": true,
-  "ms": 325
+  "ms": 341
  },
  {
   "name": "ask-me-anything friend mode answers with web info and shows correction",
   "ok": true,
-  "ms": 157
+  "ms": 168
  },
  {
   "name": "fluency gym: 4-3-2 drill runs three rounds with stats",
   "ok": true,
-  "ms": 5216
+  "ms": 5196
  },
  {
   "name": "think in English: story mode keeps its own topic and flow",
   "ok": true,
-  "ms": 5678
+  "ms": 5666
  },
  {
   "name": "rate-limit (429) shows graceful error with retry",
   "ok": true,
-  "ms": 182
+  "ms": 120
  },
  {
   "name": "timer: start, pause, resume, finish",
   "ok": true,
-  "ms": 1328
+  "ms": 1359
  },
  {
   "name": "microphone permission denied shows guidance",
   "ok": true,
-  "ms": 2501
+  "ms": 2532
  },
  {
   "name": "no uncaught runtime errors",
   "ok": true,
-  "ms": 0
+  "ms": 1
  }
 ]

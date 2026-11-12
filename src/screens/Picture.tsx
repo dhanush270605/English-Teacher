@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { isNative } from '../services/platform';
 import { Top, Loading, ErrorBox, Segmented, toast } from '../ui/components';
 import { Icon } from '../ui/icons';
 import { SpeakCapture, type CaptureResult } from '../ui/SpeakCapture';
@@ -23,6 +24,8 @@ export function PictureChallenge({ category }: { category?: string }) {
   const [pic, setPic] = useState<Picture | null>(null);
   const [phase, setPhase] = useState<'setup' | 'loading' | 'prep' | 'speak' | 'analyzing' | 'report'>('setup');
   const [prep, setPrep] = useState(10);
+  const [imgReady, setImgReady] = useState(false);
+  const skipped = useRef<string[]>([]);
   const [error, setError] = useState('');
   const [result, setResult] = useState<(AnalysisResult & { delta?: any; transcript: string }) | null>(null);
 
@@ -31,14 +34,18 @@ export function PictureChallenge({ category }: { category?: string }) {
   useEffect(() => {
     if (phase !== 'prep') return;
     if (prep <= 0) { setPhase('speak'); return; }
+    if (!imgReady) return; // countdown starts once the photo is visible
     const t = setTimeout(() => setPrep(prep - 1), 1000);
     return () => clearTimeout(t);
-  }, [phase, prep]);
+  }, [phase, prep, imgReady]);
 
   async function load(skipUrl?: string) {
+    if (skipUrl) skipped.current.push(skipUrl);
+    if (skipped.current.length > 6) { setError('Photos could not be downloaded right now. Check your internet and try again.'); setPhase('setup'); skipped.current = []; return; }
+    setImgReady(false);
     setError(''); setPhase('loading'); setResult(null);
     try {
-      const p = await nextPicture(cat, skipUrl ? [skipUrl] : []);
+      const p = await nextPicture(cat, skipped.current);
       setPic(p);
       setPrep(10);
       setPhase('prep');
@@ -83,7 +90,7 @@ export function PictureChallenge({ category }: { category?: string }) {
         {phase === 'loading' && <div><div class="pic skeleton" /><Loading text="Finding a picture…" /></div>}
         {pic && ['prep', 'speak', 'analyzing', 'report'].includes(phase) && (
           <>
-            <PicImage pic={pic} onGiveUp={() => load(pic.url)} />
+            <PicImage pic={pic} onGiveUp={() => load(pic.url)} onReady={() => setImgReady(true)} />
             <div class="tiny muted mt">{pic.credit}{pic.license ? ` · ${pic.license}` : ''} · Wikimedia Commons</div>
           </>
         )}
@@ -130,25 +137,47 @@ export function PictureChallenge({ category }: { category?: string }) {
   );
 }
 
-/** Tries every standard thumbnail size, then a native download; asks for another photo if all fail. */
-function PicImage({ pic, onGiveUp }: { pic: Picture; onGiveUp: () => void }) {
-  const [i, setI] = useState(0);
-  const [src, setSrc] = useState(pic.thumbs?.[0] || pic.thumb);
+/** On Android the photo is downloaded natively (proper User-Agent, no WebView referrer) and shown as a data URL;
+ *  in the browser it tries every standard thumbnail size. Asks for another photo if everything fails. */
+function PicImage({ pic, onGiveUp, onReady }: { pic: Picture; onGiveUp: () => void; onReady: () => void }) {
+  const list = pic.thumbs?.length ? pic.thumbs : [pic.thumb];
+  const [src, setSrc] = useState('');
   const [loaded, setLoaded] = useState(false);
-  useEffect(() => { setI(0); setSrc(pic.thumbs?.[0] || pic.thumb); setLoaded(false); }, [pic.url]);
-  async function fail() {
-    const list = pic.thumbs?.length ? pic.thumbs : [pic.thumb];
-    if (i + 1 < list.length) { setI(i + 1); setSrc(list[i + 1]); return; }
-    if (!src.startsWith('data:')) {
-      const d = await pictureDataUrl(list.find((u) => /\/500px-/.test(u)) || list[0]);
-      if (d) { setSrc(d); return; }
-    }
+  const idx = useRef(0);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoaded(false); setSrc(''); idx.current = 0;
+    (async () => {
+      if (isNative()) {
+        for (const u of [list.find((x) => /\/500px-/.test(x)), list.find((x) => /\/960px-/.test(x)), ...list].filter(Boolean) as string[]) {
+          const d = await pictureDataUrl(u);
+          if (cancelled) return;
+          if (d) { setSrc(d); return; }
+        }
+        if (!cancelled) onGiveUp();
+        return;
+      }
+      setSrc(list[0]);
+    })();
+    const giveUp = setTimeout(() => { if (!cancelled && !imgRef.current?.naturalWidth) onGiveUp(); }, 25000);
+    return () => { cancelled = true; clearTimeout(giveUp); };
+  }, [pic.url]);
+
+  useEffect(() => { const el = imgRef.current; if (el && el.complete && el.naturalWidth > 0) ready(); }, [src]);
+
+  function ready() { if (!loaded) { setLoaded(true); onReady(); } }
+  function fail() {
+    if (src.startsWith('data:')) { onGiveUp(); return; }
+    if (idx.current + 1 < list.length) { idx.current++; setSrc(list[idx.current]); return; }
     onGiveUp();
   }
   return (
     <div style={{ position: 'relative' }}>
       {!loaded && <div class="pic skeleton" style={{ position: 'absolute', inset: 0 }} />}
-      <img class="pic" src={src} alt={pic.caption || pic.title} decoding="async" referrerpolicy="no-referrer" onLoad={() => setLoaded(true)} onError={fail} style={{ opacity: loaded ? 1 : 0 }} />
+      {src && <img ref={imgRef} class="pic" src={src} alt={pic.caption || pic.title} decoding="async" referrerpolicy="no-referrer" onLoad={ready} onError={fail} style={{ opacity: loaded ? 1 : 0 }} />}
+      {!src && <div class="pic" />}
     </div>
   );
 }
